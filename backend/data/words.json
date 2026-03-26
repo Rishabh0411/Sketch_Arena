@@ -1,0 +1,22 @@
+[
+  "cat", "dog", "house", "tree", "car", "sun", "moon", "star", "flower", "bird",
+  "fish", "apple", "banana", "pizza", "cake", "chair", "table", "bed", "door", "window",
+  "book", "phone", "computer", "guitar", "piano", "drum", "umbrella", "glasses", "hat", "shoe",
+  "sock", "shirt", "pants", "dress", "coat", "watch", "ring", "necklace", "earring", "bracelet",
+  "camera", "pencil", "pen", "paper", "scissors", "glue", "tape", "stapler", "ruler", "eraser",
+  "backpack", "wallet", "keys", "bottle", "cup", "plate", "bowl", "spoon", "fork", "knife",
+  "mountain", "river", "ocean", "beach", "forest", "desert", "island", "volcano", "waterfall", "rainbow",
+  "butterfly", "bee", "spider", "ant", "frog", "turtle", "snake", "rabbit", "mouse", "elephant",
+  "lion", "tiger", "bear", "monkey", "giraffe", "zebra", "horse", "cow", "pig", "sheep",
+  "chicken", "duck", "owl", "eagle", "penguin", "dolphin", "whale", "shark", "octopus", "crab",
+  "airplane", "helicopter", "boat", "ship", "train", "bus", "truck", "bicycle", "motorcycle", "rocket",
+  "castle", "church", "bridge", "tower", "lighthouse", "barn", "tent", "igloo", "pyramid", "sphinx",
+  "crown", "sword", "shield", "arrow", "bow", "flag", "treasure", "map", "compass", "anchor",
+  "heart", "diamond", "circle", "square", "triangle", "rectangle", "oval", "hexagon", "pentagon", "octagon",
+  "red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "black", "white",
+  "happy", "sad", "angry", "surprised", "scared", "tired", "excited", "bored", "confused", "worried",
+  "doctor", "teacher", "police", "firefighter", "chef", "pilot", "farmer", "artist", "musician", "dancer",
+  "soccer", "basketball", "baseball", "tennis", "golf", "swimming", "running", "jumping", "skating", "skiing",
+  "cookie", "donut", "icecream", "candy", "chocolate", "popcorn", "hotdog", "hamburger", "sandwich", "salad",
+  "soda", "juice", "milk", "water", "coffee", "tea", "smoothie", "lemonade", "milkshake", "soup"
+]
