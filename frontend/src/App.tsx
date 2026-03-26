@@ -14,8 +14,8 @@ interface Room {
   id: string;
   players: Player[];
   teams: {
-    A: { score: number; players: string[] };
-    B: { score: number; players: string[] };
+    A: { name: string; score: number; players: string[] };
+    B: { name: string; score: number; players: string[] };
   };
   gameState: {
     status: 'waiting' | 'playing' | 'finished';
@@ -37,6 +37,9 @@ function App() {
   const [messages, setMessages] = useState<string[]>([]);
   const [guessInput, setGuessInput] = useState('');
   const [error, setError] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState<'A' | 'B' | null>(null);
+  const [editingTeamName, setEditingTeamName] = useState<'A' | 'B' | null>(null);
+  const [teamNameInput, setTeamNameInput] = useState('');
   
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -80,6 +83,10 @@ function App() {
         return { ...prev, players: [...prev.players, data.player] };
       });
       addMessage(`${data.player.name} joined the room`);
+    });
+
+    newSocket.on('roomStateUpdate', (data: { room: Room }) => {
+      setRoom(data.room);
     });
 
     newSocket.on('gameStarted', () => {
@@ -192,7 +199,7 @@ function App() {
       setError('Please enter your name');
       return;
     }
-    socket.emit('joinRoom', { playerName: playerName.trim() });
+    socket.emit('joinRoom', { playerName: playerName.trim(), teamId: selectedTeam });
   };
 
   const handleJoinRoom = () => {
@@ -200,7 +207,33 @@ function App() {
       setError('Please enter your name and room code');
       return;
     }
-    socket.emit('joinRoom', { playerName: playerName.trim(), roomId: roomCode.toUpperCase() });
+    socket.emit('joinRoom', { playerName: playerName.trim(), roomId: roomCode.toUpperCase(), teamId: selectedTeam });
+  };
+
+  const handleChangeTeam = (teamId: 'A' | 'B') => {
+    if (socket && room && room.gameState.status === 'waiting') {
+      socket.emit('changeTeam', { teamId });
+    }
+  };
+
+  const handleStartEditTeamName = (teamId: 'A' | 'B') => {
+    if (room && room.gameState.status === 'waiting') {
+      setEditingTeamName(teamId);
+      setTeamNameInput(room.teams[teamId].name);
+    }
+  };
+
+  const handleSaveTeamName = () => {
+    if (socket && editingTeamName && teamNameInput.trim()) {
+      socket.emit('changeTeamName', { teamId: editingTeamName, name: teamNameInput.trim() });
+      setEditingTeamName(null);
+      setTeamNameInput('');
+    }
+  };
+
+  const handleCancelEditTeamName = () => {
+    setEditingTeamName(null);
+    setTeamNameInput('');
   };
 
   const handleStartGame = () => {
@@ -457,6 +490,41 @@ function App() {
             maxLength={20}
           />
 
+          {/* Team Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Choose Your Team (Optional)</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSelectedTeam('A')}
+                className={`py-3 px-4 rounded-lg border-2 font-semibold transition ${
+                  selectedTeam === 'A' 
+                    ? 'bg-blue-100 border-blue-600 text-blue-800' 
+                    : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
+                }`}
+              >
+                Team A {selectedTeam === 'A' && '✓'}
+              </button>
+              <button
+                onClick={() => setSelectedTeam('B')}
+                className={`py-3 px-4 rounded-lg border-2 font-semibold transition ${
+                  selectedTeam === 'B' 
+                    ? 'bg-pink-100 border-pink-600 text-pink-800' 
+                    : 'bg-white border-gray-300 text-gray-700 hover:border-pink-400'
+                }`}
+              >
+                Team B {selectedTeam === 'B' && '✓'}
+              </button>
+            </div>
+            {selectedTeam && (
+              <button
+                onClick={() => setSelectedTeam(null)}
+                className="text-xs text-gray-500 hover:text-gray-700 mt-1"
+              >
+                Clear selection (auto-assign)
+              </button>
+            )}
+          </div>
+
           <button
             onClick={handleCreateRoom}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg mb-3 transition"
@@ -522,19 +590,102 @@ function App() {
             </button>
 
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-bold text-lg mb-2 text-blue-800">Team A ({room.players.filter(p => p.teamId === 'A').length})</h3>
+              {/* Team A */}
+              <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                <div className="flex items-center justify-between mb-3">
+                  {editingTeamName === 'A' ? (
+                    <div className="flex gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={teamNameInput}
+                        onChange={(e) => setTeamNameInput(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-blue-400 rounded text-sm"
+                        maxLength={20}
+                        autoFocus
+                      />
+                      <button onClick={handleSaveTeamName} className="text-green-600 hover:text-green-700">✓</button>
+                      <button onClick={handleCancelEditTeamName} className="text-red-600 hover:text-red-700">✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="font-bold text-lg text-blue-800">
+                        {room.teams.A.name} ({room.players.filter(p => p.teamId === 'A').length})
+                      </h3>
+                      {room.gameState.status === 'waiting' && (
+                        <button
+                          onClick={() => handleStartEditTeamName('A')}
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                          title="Edit team name"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
                 {room.players.filter(p => p.teamId === 'A').map(player => (
-                  <div key={player.id} className="py-1 text-gray-700">
-                    {player.name} {player.id === playerId && '(You)'} {player.id === room.hostId && '👑'}
+                  <div key={player.id} className="py-1 text-gray-700 flex items-center justify-between">
+                    <span>
+                      {player.name} {player.id === playerId && '(You)'} {player.id === room.hostId && '👑'}
+                    </span>
+                    {player.id === playerId && room.gameState.status === 'waiting' && (
+                      <button
+                        onClick={() => handleChangeTeam('B')}
+                        className="text-xs bg-pink-500 hover:bg-pink-600 text-white px-2 py-1 rounded"
+                      >
+                        Switch →
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
-              <div className="bg-pink-50 p-4 rounded-lg">
-                <h3 className="font-bold text-lg mb-2 text-pink-800">Team B ({room.players.filter(p => p.teamId === 'B').length})</h3>
+
+              {/* Team B */}
+              <div className="bg-pink-50 p-4 rounded-lg border-2 border-pink-200">
+                <div className="flex items-center justify-between mb-3">
+                  {editingTeamName === 'B' ? (
+                    <div className="flex gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={teamNameInput}
+                        onChange={(e) => setTeamNameInput(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-pink-400 rounded text-sm"
+                        maxLength={20}
+                        autoFocus
+                      />
+                      <button onClick={handleSaveTeamName} className="text-green-600 hover:text-green-700">✓</button>
+                      <button onClick={handleCancelEditTeamName} className="text-red-600 hover:text-red-700">✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="font-bold text-lg text-pink-800">
+                        {room.teams.B.name} ({room.players.filter(p => p.teamId === 'B').length})
+                      </h3>
+                      {room.gameState.status === 'waiting' && (
+                        <button
+                          onClick={() => handleStartEditTeamName('B')}
+                          className="text-xs text-pink-600 hover:text-pink-700"
+                          title="Edit team name"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
                 {room.players.filter(p => p.teamId === 'B').map(player => (
-                  <div key={player.id} className="py-1 text-gray-700">
-                    {player.name} {player.id === playerId && '(You)'} {player.id === room.hostId && '👑'}
+                  <div key={player.id} className="py-1 text-gray-700 flex items-center justify-between">
+                    <span>
+                      {player.name} {player.id === playerId && '(You)'} {player.id === room.hostId && '👑'}
+                    </span>
+                    {player.id === playerId && room.gameState.status === 'waiting' && (
+                      <button
+                        onClick={() => handleChangeTeam('A')}
+                        className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+                      >
+                        ← Switch
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -558,11 +709,11 @@ function App() {
             </div>
             <div className="flex gap-8">
               <div className="text-center">
-                <div className="text-sm text-gray-600">Team A</div>
+                <div className="text-sm text-gray-600">{room.teams.A.name}</div>
                 <div className="text-2xl font-bold text-blue-600">{room.teams.A.score}</div>
               </div>
               <div className="text-center">
-                <div className="text-sm text-gray-600">Team B</div>
+                <div className="text-sm text-gray-600">{room.teams.B.name}</div>
                 <div className="text-2xl font-bold text-pink-600">{room.teams.B.score}</div>
               </div>
             </div>

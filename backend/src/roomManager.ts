@@ -37,8 +37,8 @@ export function createRoom(): Room {
     id: roomId,
     players: {},
     teams: {
-      A: { id: 'A', score: 0, players: [] },
-      B: { id: 'B', score: 0, players: [] }
+      A: { id: 'A', name: 'Team A', score: 0, players: [] },
+      B: { id: 'B', name: 'Team B', score: 0, players: [] }
     },
     gameState: {
       status: 'waiting',
@@ -145,6 +145,39 @@ export function getActivePlayers(room: Room): Player[] {
 
 export function getAllRooms(): Room[] {
   return Array.from(rooms.values());
+}
+
+export function changePlayerTeam(room: Room, playerId: string, newTeamId: TeamId): boolean {
+  const player = room.players[playerId];
+  if (!player) return false;
+  
+  // Don't allow team changes during active game
+  if (room.gameState.status === 'playing') return false;
+  
+  const oldTeamId = player.teamId;
+  
+  // Remove from old team
+  room.teams[oldTeamId].players = room.teams[oldTeamId].players.filter(id => id !== playerId);
+  
+  // Add to new team
+  room.teams[newTeamId].players.push(playerId);
+  player.teamId = newTeamId;
+  
+  room.lastActivity = Date.now();
+  return true;
+}
+
+export function changeTeamName(room: Room, teamId: TeamId, newName: string): boolean {
+  // Don't allow during active game
+  if (room.gameState.status === 'playing') return false;
+  
+  // Validate name
+  const trimmedName = newName.trim();
+  if (!trimmedName || trimmedName.length > 20) return false;
+  
+  room.teams[teamId].name = trimmedName;
+  room.lastActivity = Date.now();
+  return true;
 }
 
 // Cleanup inactive rooms (30 minutes)

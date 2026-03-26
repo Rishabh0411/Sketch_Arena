@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
   let currentRoom: string | null = null;
   
   // Join or create room
-  socket.on('joinRoom', ({ playerName, roomId }: { playerName: string; roomId?: string }) => {
+  socket.on('joinRoom', ({ playerName, roomId, teamId }: { playerName: string; roomId?: string; teamId?: TeamId }) => {
     try {
       // Sanitize player name
       const cleanName = playerName.trim().slice(0, 20).replace(/[^\w\s\-]/g, '');
@@ -73,12 +73,14 @@ io.on('connection', (socket) => {
         return;
       }
       
-      // Create player
+      // Create player with chosen team or auto-assign
+      const assignedTeamId = teamId && (teamId === 'A' || teamId === 'B') ? teamId : roomManager.assignTeam(room);
+      
       const player: Player = {
         id: roomManager.generatePlayerId(),
         name: cleanName,
         socketId: socket.id,
-        teamId: 'A', // Will be assigned by addPlayerToRoom
+        teamId: assignedTeamId,
         isDrawer: false,
         hasGuessed: false,
         status: 'active'
@@ -256,6 +258,42 @@ io.on('connection', (socket) => {
       message: cleanMessage,
       timestamp: Date.now()
     });
+  });
+  
+  // Change team
+  socket.on('changeTeam', ({ teamId }: { teamId: TeamId }) => {
+    if (!currentPlayer || !currentRoom) return;
+    
+    const room = roomManager.getRoom(currentRoom);
+    if (!room) return;
+    
+    const success = roomManager.changePlayerTeam(room, currentPlayer.id, teamId);
+    
+    if (success) {
+      // Send updated room state to everyone
+      const serializedRoom = serializeRoom(room);
+      io.to(room.id).emit('roomStateUpdate', { room: serializedRoom });
+    } else {
+      socket.emit('error', { message: 'Cannot change teams during game' });
+    }
+  });
+  
+  // Change team name
+  socket.on('changeTeamName', ({ teamId, name }: { teamId: TeamId; name: string }) => {
+    if (!currentPlayer || !currentRoom) return;
+    
+    const room = roomManager.getRoom(currentRoom);
+    if (!room) return;
+    
+    const success = roomManager.changeTeamName(room, teamId, name);
+    
+    if (success) {
+      // Send updated room state to everyone
+      const serializedRoom = serializeRoom(room);
+      io.to(room.id).emit('roomStateUpdate', { room: serializedRoom });
+    } else {
+      socket.emit('error', { message: 'Invalid team name or cannot change during game' });
+    }
   });
   
   // Disconnect

@@ -14,6 +14,7 @@ export interface Player {
 
 export interface Team {
   id: TeamId;
+  name: string;
   score: number;
   players: string[]; // playerIds
 }
