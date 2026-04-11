@@ -13,7 +13,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:4173',
     methods: ['GET', 'POST']
   }
 });
@@ -364,10 +364,10 @@ function serializePlayer(player: any) {
   };
 }
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4000;
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+  console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:4173'}`);
 });
