@@ -89,8 +89,8 @@ export function addPlayerToRoom(room: Room, player: Player): void {
     room.hostId = player.id;
   }
   
-  // Auto-assign to team with fewer players
-  assignTeam(room, player);
+  // Add player to their team
+  room.teams[player.teamId].players.push(player.id);
   room.lastActivity = Date.now();
 }
 
@@ -120,14 +120,12 @@ export function removePlayerFromRoom(room: Room, playerId: string): void {
   }
 }
 
-function assignTeam(room: Room, player: Player): void {
-  const teamASizeWithNew = room.teams.A.players.length;
+export function getBalancedTeamId(room: Room): TeamId {
+  const teamASize = room.teams.A.players.length;
   const teamBSize = room.teams.B.players.length;
   
   // Assign to team with fewer players
-  const teamId: TeamId = teamASizeWithNew <= teamBSize ? 'A' : 'B';
-  player.teamId = teamId;
-  room.teams[teamId].players.push(player.id);
+  return teamASize <= teamBSize ? 'A' : 'B';
 }
 
 export function getRandomWords(count: number = 3): string[] {

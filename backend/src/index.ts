@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Player } from './types';
+import { Player, TeamId } from './types';
 import * as roomManager from './roomManager';
 import * as gameLogic from './gameLogic';
 
@@ -74,7 +74,7 @@ io.on('connection', (socket) => {
       }
       
       // Create player with chosen team or auto-assign
-      const assignedTeamId = teamId && (teamId === 'A' || teamId === 'B') ? teamId : roomManager.assignTeam(room);
+      const assignedTeamId: TeamId = teamId && (teamId === 'A' || teamId === 'B') ? teamId : roomManager.getBalancedTeamId(room);
       
       const player: Player = {
         id: roomManager.generatePlayerId(),
