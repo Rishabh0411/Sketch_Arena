@@ -27,6 +27,7 @@ interface GamePageProps {
   room: Room;
   playerId: string;
   wordOptions: string[];
+  currentWord: string;
   messages: string[];
   guessInput: string;
   setGuessInput: (value: string) => void;
@@ -51,6 +52,7 @@ export default function GamePage({
   room,
   playerId,
   wordOptions,
+  currentWord,
   messages,
   guessInput,
   setGuessInput,
@@ -135,6 +137,12 @@ export default function GamePage({
                 </div>
               </div>
             </div>
+
+            {isDrawer && currentWord && (
+              <div className="bg-primary/10 text-primary font-headline text-sm px-4 py-2 rounded-lg">
+                Your word: {currentWord}
+              </div>
+            )}
 
             <div className="flex gap-6">
               <div className="text-center">

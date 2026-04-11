@@ -4,7 +4,7 @@ import LandingPage from './pages/LandingPage';
 import LobbyPage from './pages/LobbyPage';
 import GamePage from './pages/GamePage';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
 
 interface Player {
   id: string;
@@ -88,16 +88,48 @@ function App() {
 
     newSocket.on('gameStarted', () => {
       setView('game');
+      setCurrentWord('');
+      setRoom(prev => prev ? {
+        ...prev,
+        gameState: {
+          ...prev.gameState,
+          status: 'playing',
+          round: prev.gameState.round || 1,
+          currentDrawerId: null
+        },
+        players: prev.players.map(p => ({ ...p, isDrawer: false }))
+      } : prev);
+      clearCanvas();
       addMessage('Game started!');
     });
 
     newSocket.on('wordOptions', (data: { options: string[] }) => {
+      setCurrentWord('');
       setWordOptions(data.options);
     });
 
-    newSocket.on('turnStart', (data: { drawerName: string; round: number }) => {
+    newSocket.on('turnStart', (data: { drawerName: string; round: number; drawerId?: string | null }) => {
       addMessage(`Round ${data.round}: ${data.drawerName} is drawing!`);
       setWordOptions([]);
+      setCurrentWord('');
+      setRoom(prev => {
+        if (!prev) return prev;
+        const updatedPlayers = prev.players.map(p => ({
+          ...p,
+          isDrawer: data.drawerId ? p.id === data.drawerId : false
+        }));
+        return {
+          ...prev,
+          players: updatedPlayers,
+          gameState: {
+            ...prev.gameState,
+            status: 'playing',
+            currentDrawerId: data.drawerId ?? prev.gameState.currentDrawerId,
+            round: data.round
+          }
+        };
+      });
+      clearCanvas();
     });
 
     newSocket.on('wordConfirmed', (data: { word: string }) => {
@@ -141,6 +173,15 @@ function App() {
 
     newSocket.on('gameEnded', (data: { winnerId: 'A' | 'B' | null; message: string }) => {
       addMessage(`🏆 ${data.message}`);
+      setRoom(prev => prev ? {
+        ...prev,
+        gameState: {
+          ...prev.gameState,
+          status: 'finished',
+          currentDrawerId: null
+        },
+        players: prev.players.map(p => ({ ...p, isDrawer: false }))
+      } : prev);
     });
 
     newSocket.on('chatMessage', (data: { playerName: string; message: string }) => {
@@ -191,6 +232,17 @@ function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Initialize canvas background when game view becomes active
+  useEffect(() => {
+    if (view !== 'game') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = fillColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, [view]);
 
   const addMessage = (msg: string) => {
     setMessages(prev => [...prev, msg]);
@@ -477,6 +529,7 @@ function App() {
         room={room}
         playerId={playerId}
         wordOptions={wordOptions}
+        currentWord={currentWord}
         messages={messages}
         guessInput={guessInput}
         setGuessInput={setGuessInput}

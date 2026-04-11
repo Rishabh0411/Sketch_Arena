@@ -16,7 +16,7 @@ npm run dev
 
 ## Play the Game
 
-1. Open http://localhost:5173
+1. Open http://localhost:4173
 2. Enter your name and create/join a room
 3. Host clicks "Start Game"
 4. Drawer selects a word

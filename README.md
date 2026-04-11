@@ -90,9 +90,9 @@ Ensure you have the following installed:
 
    **Backend** (`backend/.env`):
    ```env
-   PORT=3001
+   PORT=4000
    NODE_ENV=development
-   CORS_ORIGIN=http://localhost:5173
+   CORS_ORIGIN=http://localhost:4173
    REDIS_URL=redis://localhost:6379  # Optional
    MAX_ROOMS=1000
    MAX_PLAYERS_PER_ROOM=10
@@ -101,8 +101,8 @@ Ensure you have the following installed:
 
    **Frontend** (`frontend/.env`):
    ```env
-   VITE_API_URL=http://localhost:3001
-   VITE_SOCKET_URL=ws://localhost:3001
+   VITE_API_URL=http://localhost:4000
+   VITE_SOCKET_URL=ws://localhost:4000
    ```
 
 ### Running Locally
@@ -111,19 +111,19 @@ Ensure you have the following installed:
    ```bash
    cd backend
    npm run dev
-   # Server runs on http://localhost:3001
+   # Server runs on http://localhost:4000
    ```
 
 2. **Start the frontend (in a new terminal):**
    ```bash
    cd frontend
    npm run dev
-   # App runs on http://localhost:5173
+   # App runs on http://localhost:4173
    ```
 
 3. **Open multiple browser tabs** to test multiplayer functionality:
-   - Tab 1: `http://localhost:5173`
-   - Tab 2: `http://localhost:5173`
+   - Tab 1: `http://localhost:4173`
+   - Tab 2: `http://localhost:4173`
 
 ---
 
@@ -1670,7 +1670,7 @@ npm install -g artillery
 # Create load test config (artillery.yml)
 cat > artillery.yml << 'EOF'
 config:
-  target: 'http://localhost:3001'
+  target: 'http://localhost:4000'
   phases:
     - duration: 60
       arrivalRate: 10
@@ -2150,4 +2150,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Happy drawing! 🎨**
-
