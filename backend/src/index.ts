@@ -13,7 +13,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:4173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     methods: ['GET', 'POST']
   }
 });
@@ -217,24 +217,28 @@ io.on('connection', (socket) => {
     
     // Sanitize guess
     const cleanGuess = message.trim().slice(0, 100);
-    if (!cleanGuess) return;
     
     // Drawer cannot guess
     if (currentPlayer.id === room.gameState.currentDrawerId) {
       return;
     }
     
-    // Broadcast chat entry for visibility
-    io.to(room.id).emit('chatMessage', {
-      playerId: currentPlayer.id,
-      playerName: currentPlayer.name,
-      message: cleanGuess,
-      timestamp: Date.now(),
-      teamId: currentPlayer.teamId
-    });
-
     // Handle guess
     const isCorrect = gameLogic.handleGuess(room, currentPlayer, cleanGuess, io);
+    
+    if (!isCorrect) {
+      // Broadcast guess to team only
+      const drawer = room.players[room.gameState.currentDrawerId!];
+      if (drawer && currentPlayer.teamId === drawer.teamId) {
+        io.to(room.id).emit('chatMessage', {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          message: cleanGuess,
+          timestamp: Date.now(),
+          teamId: currentPlayer.teamId
+        });
+      }
+    }
   });
   
   // Chat message
@@ -364,10 +368,10 @@ function serializePlayer(player: any) {
   };
 }
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3001;
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:4173'}`);
+  console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
 });

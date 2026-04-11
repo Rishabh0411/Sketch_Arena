@@ -63,7 +63,7 @@ Sketch arena/
 │   │   └── words.json        # 200 words for gameplay
 │   ├── package.json
 │   ├── tsconfig.json
-│   └── .env                  # PORT=4000, CORS, timers
+│   └── .env                  # PORT=3001, CORS, timers
 ├── frontend/
 │   ├── src/
 │   │   ├── App.tsx           # Complete game UI (900+ lines)
@@ -92,7 +92,7 @@ Sketch arena/
 cd backend
 npm install
 npm run dev
-# Runs on http://localhost:4000
+# Runs on http://localhost:3001
 ```
 
 2. **Start Frontend**
@@ -100,11 +100,11 @@ npm run dev
 cd frontend
 npm install
 npm run dev
-# Runs on http://localhost:4173
+# Runs on http://localhost:5173
 ```
 
 3. **Open in Browser**
-- Navigate to http://localhost:4173
+- Navigate to http://localhost:5173
 - Create a room or join with room code
 - Play with multiple browser tabs/windows
 
@@ -128,16 +128,16 @@ npm run preview  # Preview production build
 
 **Backend (.env):**
 ```
-PORT=4000
-CORS_ORIGIN=http://localhost:4173
+PORT=3001
+CORS_ORIGIN=http://localhost:5173
 DRAWING_TIME=80000
 WORD_SELECTION_TIME=10000
 ```
 
 **Frontend (.env):**
 ```
-VITE_API_URL=http://localhost:4000
-VITE_SOCKET_URL=http://localhost:4000
+VITE_API_URL=http://localhost:3001
+VITE_SOCKET_URL=http://localhost:3001
 ```
 
 ### Deployment Platforms
@@ -150,7 +150,7 @@ VITE_SOCKET_URL=http://localhost:4000
 - Update CORS_ORIGIN to production frontend URL
 - Update VITE_SOCKET_URL to production backend URL
 - Ensure WebSocket connections supported (Socket.IO)
-- Default ports: Backend 4000, Frontend 4173
+- Default ports: Backend 3001, Frontend 5173
 
 ## 📊 Git Repository
 

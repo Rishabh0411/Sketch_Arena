@@ -17,7 +17,7 @@ npm run dev
 ## Manual Test Checklist
 
 ### Landing Page
-- Open http://localhost:4173
+- Open http://localhost:5173
 - Enter name and create/join room
 - Should see lobby with room code
 

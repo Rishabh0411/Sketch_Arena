@@ -153,10 +153,12 @@ export function handleGuess(room: Room, player: Player, guess: string, io: any):
   const isCorrect = guess.toLowerCase().trim() === room.gameState.currentWord.toLowerCase();
   
   if (isCorrect) {
-    player.hasGuessed = true;
     handleCorrectGuess(room, player, io);
     return true;
   }
+  
+  // Mark as guessed (prevent spam)
+  player.hasGuessed = true;
   return false;
 }
 
