@@ -1,10 +1,58 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import LandingPage from './pages/LandingPage';
 import LobbyPage from './pages/LobbyPage';
 import GamePage from './pages/GamePage';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const FILL_COLOR = '#FFFFFF';
+
+type DrawTool = 'pen' | 'eraser' | 'fill' | 'line' | 'rectangle' | 'circle';
+
+type DrawEvent =
+  | { tool: 'pen' | 'eraser'; x: number; y: number; color: string; size: number }
+  | { tool: 'fill'; x: number; y: number; color: string; size: number }
+  | {
+      tool: 'line' | 'rectangle' | 'circle';
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
+      color: string;
+      size: number;
+    };
+
+const getPixelColor = (imageData: ImageData, x: number, y: number) => {
+  const index = (y * imageData.width + x) * 4;
+  return [
+    imageData.data[index],
+    imageData.data[index + 1],
+    imageData.data[index + 2],
+    imageData.data[index + 3]
+  ];
+};
+
+const setPixelColor = (imageData: ImageData, x: number, y: number, color: number[]) => {
+  const index = (y * imageData.width + x) * 4;
+  imageData.data[index] = color[0];
+  imageData.data[index + 1] = color[1];
+  imageData.data[index + 2] = color[2];
+  imageData.data[index + 3] = 255;
+};
+
+const hexToRgb = (hex: string): number[] => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? [
+    parseInt(result[1], 16),
+    parseInt(result[2], 16),
+    parseInt(result[3], 16),
+    255
+  ] : [0, 0, 0, 255];
+};
+
+const colorsMatch = (a: number[], b: number[]) => {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+};
 
 interface Player {
   id: string;
@@ -30,7 +78,7 @@ interface Room {
 }
 
 function App() {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket] = useState<Socket>(() => io(SOCKET_URL));
   const [view, setView] = useState<'landing' | 'lobby' | 'game'>('landing');
   const [room, setRoom] = useState<Room | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -43,34 +91,100 @@ function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentColor, setCurrentColor] = useState('#000000');
-  const fillColor = '#FFFFFF'; // Background color
   const [brushSize, setBrushSize] = useState(5);
-  const [tool, setTool] = useState<'pen' | 'eraser' | 'fill' | 'line' | 'rectangle' | 'circle'>('pen');
+  const [tool, setTool] = useState<DrawTool>('pen');
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
   const [tempCanvas, setTempCanvas] = useState<ImageData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const addMessage = useCallback((msg: string) => {
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
+  // Canvas drawing functions
+  const drawOnCanvas = useCallback((x: number, y: number, color: string, size: number, drawTool: DrawTool) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = size;
+    ctx.strokeStyle = drawTool === 'eraser' ? '#FFFFFF' : color;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }, []);
+
+  const floodFill = useCallback((startX: number, startY: number, fillColorVal: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const targetColor = getPixelColor(imageData, startX, startY);
+    const fillRGB = hexToRgb(fillColorVal);
+    
+    if (colorsMatch(targetColor, fillRGB)) return;
+
+    const pixelStack = [[startX, startY]];
+    const visited = new Set<string>();
+
+    while (pixelStack.length > 0) {
+      const [x, y] = pixelStack.pop()!;
+      const key = `${x},${y}`;
+      
+      if (visited.has(key)) continue;
+      if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) continue;
+      
+      const currentColor = getPixelColor(imageData, x, y);
+      if (!colorsMatch(currentColor, targetColor)) continue;
+
+      visited.add(key);
+      setPixelColor(imageData, x, y, fillRGB);
+
+      pixelStack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }, []);
+
+  const clearCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = FILL_COLOR;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
   // Initialize socket
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
+    socket.on('connect', () => {
       console.log('Connected to server');
     });
 
-    newSocket.on('error', (data: { message: string }) => {
+    socket.on('error', (data: { message: string }) => {
       console.error('Socket error:', data.message);
     });
 
-    newSocket.on('roomJoined', (data: { room: Room; playerId: string }) => {
+    socket.on('roomJoined', (data: { room: Room; playerId: string }) => {
       console.log('Room joined:', data);
       setRoom(data.room);
       setPlayerId(data.playerId);
       setView('lobby');
     });
 
-    newSocket.on('playerJoined', (data: { player: Player }) => {
+    socket.on('playerJoined', (data: { player: Player }) => {
       console.log('Player joined:', data);
       setRoom(prev => {
         if (!prev) return null;
@@ -82,34 +196,35 @@ function App() {
       addMessage(`${data.player.name} joined the room`);
     });
 
-    newSocket.on('roomStateUpdate', (data: { room: Room }) => {
+    socket.on('roomStateUpdate', (data: { room: Room }) => {
       setRoom(data.room);
     });
 
-    newSocket.on('gameStarted', () => {
+    socket.on('gameStarted', () => {
       setView('game');
       addMessage('Game started!');
     });
 
-    newSocket.on('wordOptions', (data: { options: string[] }) => {
+    socket.on('wordOptions', (data: { options: string[] }) => {
       setWordOptions(data.options);
     });
 
-    newSocket.on('turnStart', (data: { drawerName: string; round: number }) => {
+    socket.on('turnStart', (data: { drawerName: string; round: number }) => {
       addMessage(`Round ${data.round}: ${data.drawerName} is drawing!`);
       setWordOptions([]);
+      setCurrentWord('');
     });
 
-    newSocket.on('wordConfirmed', (data: { word: string }) => {
+    socket.on('wordConfirmed', (data: { word: string }) => {
       setCurrentWord(data.word);
       setWordOptions([]);
     });
 
-    newSocket.on('timerUpdate', (data: { remaining: number }) => {
+    socket.on('timerUpdate', (data: { remaining: number }) => {
       setRoom(prev => prev ? { ...prev, gameState: { ...prev.gameState, timer: data.remaining } } : null);
     });
 
-    newSocket.on('correctGuess', (data: { playerName: string; word: string; points: number; teamId: 'A' | 'B'; teamScore: number }) => {
+    socket.on('correctGuess', (data: { playerName: string; word: string; points: number; teamId: 'A' | 'B'; teamScore: number }) => {
       addMessage(`🎉 ${data.playerName} guessed "${data.word}" correctly! +${data.points} points`);
       // Update team score
       setRoom(prev => {
@@ -124,7 +239,7 @@ function App() {
       });
     });
 
-    newSocket.on('turnTimeout', (data: { word: string; opposingTeamId: 'A' | 'B'; teamScore: number }) => {
+    socket.on('turnTimeout', (data: { word: string; opposingTeamId: 'A' | 'B'; teamScore: number }) => {
       addMessage(`⏰ Time's up! The word was "${data.word}"`);
       // Update opposing team score
       setRoom(prev => {
@@ -139,15 +254,15 @@ function App() {
       });
     });
 
-    newSocket.on('gameEnded', (data: { winnerId: 'A' | 'B' | null; message: string }) => {
+    socket.on('gameEnded', (data: { winnerId: 'A' | 'B' | null; message: string }) => {
       addMessage(`🏆 ${data.message}`);
     });
 
-    newSocket.on('chatMessage', (data: { playerName: string; message: string }) => {
+    socket.on('chatMessage', (data: { playerName: string; message: string }) => {
       addMessage(`${data.playerName}: ${data.message}`);
     });
 
-    newSocket.on('drawData', (data: any) => {
+    socket.on('drawData', (data: DrawEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -178,23 +293,19 @@ function App() {
       }
     });
 
-    newSocket.on('canvasCleared', () => {
+    socket.on('canvasCleared', () => {
       clearCanvas();
     });
 
     return () => {
-      newSocket.close();
+      socket.close();
     };
-  }, []);
+  }, [addMessage, clearCanvas, drawOnCanvas, floodFill, socket]);
 
   // Auto-scroll messages to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  const addMessage = (msg: string) => {
-    setMessages(prev => [...prev, msg]);
-  };
 
   const handleCreateRoom = (name: string) => {
     if (!socket || !name.trim()) {
@@ -237,104 +348,6 @@ function App() {
       socket.emit('guess', { message: guessInput.trim() });
       setGuessInput('');
     }
-  };
-
-  // Canvas drawing functions
-  const drawOnCanvas = (x: number, y: number, color: string, size: number, drawTool: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = size;
-    ctx.strokeStyle = drawTool === 'eraser' ? '#FFFFFF' : color;
-
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-
-  const floodFill = (startX: number, startY: number, fillColorVal: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const targetColor = getPixelColor(imageData, startX, startY);
-    const fillRGB = hexToRgb(fillColorVal);
-    
-    if (colorsMatch(targetColor, fillRGB)) return;
-
-    const pixelStack = [[startX, startY]];
-    const visited = new Set<string>();
-
-    while (pixelStack.length > 0) {
-      const [x, y] = pixelStack.pop()!;
-      const key = `${x},${y}`;
-      
-      if (visited.has(key)) continue;
-      if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) continue;
-      
-      const currentColor = getPixelColor(imageData, x, y);
-      if (!colorsMatch(currentColor, targetColor)) continue;
-
-      visited.add(key);
-      setPixelColor(imageData, x, y, fillRGB);
-
-      pixelStack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  };
-
-  const getPixelColor = (imageData: ImageData, x: number, y: number) => {
-    const index = (y * imageData.width + x) * 4;
-    return [
-      imageData.data[index],
-      imageData.data[index + 1],
-      imageData.data[index + 2],
-      imageData.data[index + 3]
-    ];
-  };
-
-  const setPixelColor = (imageData: ImageData, x: number, y: number, color: number[]) => {
-    const index = (y * imageData.width + x) * 4;
-    imageData.data[index] = color[0];
-    imageData.data[index + 1] = color[1];
-    imageData.data[index + 2] = color[2];
-    imageData.data[index + 3] = 255;
-  };
-
-  const hexToRgb = (hex: string): number[] => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? [
-      parseInt(result[1], 16),
-      parseInt(result[2], 16),
-      parseInt(result[3], 16),
-      255
-    ] : [0, 0, 0, 255];
-  };
-
-  const colorsMatch = (a: number[], b: number[]) => {
-    return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
-  };
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = fillColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -476,6 +489,7 @@ function App() {
       <GamePage
         room={room}
         playerId={playerId}
+        currentWord={currentWord}
         wordOptions={wordOptions}
         messages={messages}
         guessInput={guessInput}
@@ -486,7 +500,6 @@ function App() {
         setBrushSize={setBrushSize}
         tool={tool}
         setTool={setTool}
-        isDrawing={isDrawing}
         canvasRef={canvasRef}
         messagesEndRef={messagesEndRef}
         onSelectWord={handleSelectWord}
